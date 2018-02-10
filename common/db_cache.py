@@ -60,7 +60,6 @@ class DBCache:
         else:
             raise KeyError(url + ' does not exist')
 
-
     def __setitem__(self, url, result):
         """Save value for this URL
         """
@@ -68,12 +67,10 @@ class DBCache:
         record = {'result': Binary(zlib.compress(pickle.dumps(result))), 'timestamp': datetime.utcnow()}
         self.db.webpage.update({'_id': url}, {'$set': record}, upsert=True)
 
-
     def clear(self):
         self.db.webpage.drop()
 
     def update_expire(self, expires):
-        print(self.ts_index)
         try:
             self.db.webpage.drop_index(self.ts_index)
         except pymongo.errors.OperationFailure:
