@@ -5,11 +5,14 @@ import urllib.robotparser as urlrp
 import datetime
 import time
 import re
+import socket
+import http.client
 
 class Downloader(object):
     def __init__(self, delay=5,
         user_agent='wswp', proxies=None,
-        num_retries=1, cache=None):
+        num_retries=1, cache=None, timeout=60):
+        socket.setdefaulttimeout(timeout)
         self.throttle = Throttle(delay)
         self.user_agent = user_agent
         self.proxies = proxies
@@ -24,7 +27,7 @@ class Downloader(object):
             except KeyError:
                 pass
             else:
-                if self.num_retries > 0 and \
+                if self.num_retries > 0 and result['code'] != None and \
                     500 <= result['code'] < 600:
                     # server error so ignore result from cache 
                     # and re-downlad
@@ -52,7 +55,10 @@ class Downloader(object):
         try:
             #html = urlreq.urlopen(request).read()
             response = opener.open(request)
-            html = response.read()
+            try:
+                html = response.read()
+            except http.client.IncompleteRead as e:
+                html = e.partial
             code = response.code
         except urlerr.URLError as e:
             print('Download error: ', e.reason)
@@ -62,6 +68,8 @@ class Downloader(object):
                 code = e.code
                 if num_retries > 0 and 500 <= e.code < 600:
                     return download(url, headers, proxy, self.num_retries-1)
+                else:
+                    pass
 
         return {'html': html, 'code': code}
 
@@ -107,3 +115,9 @@ def get_links(html):
     webpage_regex = re.compile('<a[^>]+href=["\'](.*?)["\']', re.IGNORECASE)
     # list of all links from the webpage
     return webpage_regex.findall(html)
+
+def normalize(seed_url, link):
+    """Normalize this URL by removing hash and adding domain
+    """
+    link, _ = urlparse.urldefrag(link) # remove hash to avoid duplicates
+    return urlparse.urljoin(seed_url, link)
